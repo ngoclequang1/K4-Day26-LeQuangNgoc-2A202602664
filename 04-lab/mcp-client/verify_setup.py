@@ -27,7 +27,7 @@ def check_environment():
         print("   Get key from: https://aistudio.google.com/apikey")
         return False
     
-    print(f"✅ GOOGLE_API_KEY configured ({api_key[:10]}...)")
+    print("✅ GOOGLE_API_KEY configured")
     return True
 
 def check_dependencies():
@@ -88,16 +88,17 @@ def check_mcp_server():
     server_url = os.getenv("MCP_SERVER_URL", "http://localhost:8085/mcp")
 
     try:
-        import httpx
+        import asyncio
+        from fastmcp import Client
 
-        response = httpx.get(server_url, timeout=10.0)
-        # GET thuần lên endpoint MCP thường bị từ chối (400/405/406) vì thiếu
-        # header/session MCP — nhưng có phản hồi nghĩa là server đang chạy.
-        if response.status_code < 500:
-            print(f"✅ MCP server reachable at {server_url} (HTTP {response.status_code})")
-            return True
-        print(f"⚠️  MCP server returned status {response.status_code}")
-        return False
+        async def verify_connection():
+            async with Client(server_url) as client:
+                return await client.list_tools()
+
+        tools = asyncio.run(verify_connection())
+        print(f"✅ MCP server reachable at {server_url}")
+        print(f"   Tools: {', '.join(tool.name for tool in tools)}")
+        return True
 
     except Exception as e:
         print(f"❌ Cannot reach MCP server at {server_url}: {e}")

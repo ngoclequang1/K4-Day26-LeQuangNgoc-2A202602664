@@ -29,9 +29,12 @@ async def main() -> None:
     )
 
     async with http_client:
-        async with streamable_http_client(SERVER_URL, http_client=http_client) as (
+        async with streamable_http_client(
+            SERVER_URL, http_client=http_client, terminate_on_close=False
+        ) as (
             read,
             write,
+            _,
         ):
             async with ClientSession(read, write) as session:
                 await session.initialize()
@@ -46,4 +49,14 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except BaseExceptionGroup as exc:
+        errors = list(exc.exceptions)
+        while errors and isinstance(errors[0], BaseExceptionGroup):
+            errors = list(errors[0].exceptions)
+        message = str(errors[0]) if errors else str(exc)
+        if "401 Unauthorized" in message:
+            print("Authentication failed: HTTP 401 Unauthorized (invalid bearer token)")
+        else:
+            raise
